@@ -33,8 +33,7 @@ test <- jems %>%
   group_split()
 
 test
-# Group Exercise
-# http://scavetta.academy/misk/Misk_DSI_R/_book/case-study-diamonds.html#exercises-for-plotting-transforming-and-eda
+
 
 jems %>%
   filter(clarity == "VVS2" & cut == "Good")
