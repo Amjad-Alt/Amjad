@@ -42,7 +42,10 @@ max(mean_Africa, mean_SAmerica, mean_Europe, mean_NAmerica)
 
 min(mean_Africa, mean_SAmerica, mean_Europe, mean_NAmerica)
  
-
+#plot ----
+ 
+   ggplot(data = irrigation) + 
+  +   geom_point(mapping = aes(x = region, y = area, color = year))
 
 
 
