@@ -13,7 +13,7 @@ library(zoo)
 
 
 #My data----
-silver <- Quandl("LBMA/SILVER", api_key="--54GNetvPhzHjJBva6Z", start_date="2020-10-04")
+silver <- Quandl("LBMA/SILVER", api_key="--54GNetvPhzHjJBva6Z", start_date="2020-04-09")
 
 # knowing the data----
 summary(silver)
