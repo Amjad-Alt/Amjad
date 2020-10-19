@@ -7,9 +7,6 @@ library(tidyverse)
 clothes <- read.csv("Womens_Clothing.csv")
 summary(clothes)
 glimpse(clothes)
-getwd()
-setwd("C:/Users/amjad/Documents/Misk/Amjad")
-
 
 
 # What is the mean of the rate?
@@ -25,12 +22,15 @@ rating_mean <-mean(sum(Rating)/length(Rating))
 Age <- as.numeric(clothes$Age)
 
 ##group the age
-  
-age_group <- clothes %>%
-                  group_by(Age) %>% 
-                  cut(Age, breaks=c(20, 30, 40, 50, 60, 70, 80), right = FALSE)
-                  cut(Age, breaks=c(20, 30, 40, 50, 60, 70, 80), right = FALSE, labels = FALSE)
-class(age_group) 
+
+clothes$Agecat1<-cut(clothes$Age, c(15,20,30,40,50,60,70,80,90,100))
+
+              
+## Plot shows the rate and the age.
+
+ggplot(clothes, aes(x = Agecat1, y = Rating))+
+  geom_point()
+
 
 
 # Does the type of purchase affect the rating?
