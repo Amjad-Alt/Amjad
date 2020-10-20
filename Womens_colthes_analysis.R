@@ -23,14 +23,13 @@ Age <- as.numeric(clothes$Age)
 
 ##group the age
 
-clothes$Agecat1<-cut(clothes$Age, c(15,20,30,40,50,60,70,80,90,100))
+Ages_group <- clothes$Agecat1<-cut(clothes$Age, c(15,20,30,40,50,60,70,80,90,100))
 
               
 ## Plot shows the rate and the age.
 
-ggplot(clothes, aes(x = Agecat1, y = Rating))+
+ggplot(Ages_group, aes(x = Agecat1, y = Rating))+
   geom_point()
-
 
 
 # Does the type of purchase affect the rating?
