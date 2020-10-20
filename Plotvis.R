@@ -9,6 +9,9 @@ library(tidyverse)
 library(munsell)
 library(RColorBrewer)
 library(Hmisc)
+install.packages("lattice")
+install.packages("survival")
+install.packages("Formula")
 
 # See the colors we got 
 display.brewer.all(type = "seq")
@@ -27,17 +30,19 @@ munsell::plot_hex(myBuPu)
 clothes <- read.csv("Womens_Clothing.csv")
 
 #Plots
-# Bar chart shows the age of customers rated 1. 
-#need a tittle
+
+## Bar chart shows the age of customers rated 1. 
+
 bad_rating <- clothes %>% 
                filter(Rating == 1)
 
   ggplot(bad_rating, aes(Age)) +
     geom_bar(fill= "dark red", color="white") +
-    
-    labs(x ="Age of customers",
+    labs(title = "Angry customers",
+         x ="Age of customers",
          y = "Number of customers") +
-    theme_test()
+    theme_test() +
+    theme(rect = element_blank())
   
   
 # Plot shows witch department favored by 20th age
@@ -45,22 +50,21 @@ bad_rating <- clothes %>%
     filter(Age == 20)
   age_20 %>% head
   
-#Need to add colors
-  #organize the background
+  posn_j <- position_jitter(seed = 136)
 
-  ggplot(age_20, aes(Department.Name , Division.Name)) +
-    geom_jitter(shape = 1,width = 0.6, alpha = 0.5,
-                size = 2 )+
-    scale_colour_manual("Department.Name", values = "Set2")+
-    scale_x_discrete(labels = "Bottoms",
-                              "Dresses",
-                              "Intimate",
-                              "Jackets",
-                              "Tops",
-                              "Trend") +
-    theme_bw()
+  ggplot(age_20, aes(Department.Name , Division.Name, color = Department.Name)) +
+    geom_point(position = posn_j, shape = 16, alpha = 0.3,
+               size = 3) +
+    theme_minimal() +
+    theme(legend.position = "none",
+          axis.text.x = element_text(angle = 45))
  
   
+  
+  
+  
+  
+    
 # split same last data
   #needs colors
   #get red of squares
@@ -84,6 +88,9 @@ bad_rating <- clothes %>%
 
   ggplot(dresses, aes(Rating, Positive.Feedback.Count)) +
     geom_point(position = position_jitter(seed = 300))
+  
+  
+#plot shows the mean avrage of buyers of each catogry  
     
   
 #   
