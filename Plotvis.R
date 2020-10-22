@@ -9,6 +9,9 @@ library(tidyverse)
 library(munsell)
 library(RColorBrewer)
 library(Hmisc)
+library(ggridges)
+library(ggridges)
+install.packages("ggridges")
 install.packages("lattice")
 install.packages("survival")
 install.packages("Formula")
@@ -79,19 +82,33 @@ bad_rating <- clothes %>%
           strip.background = element_blank()) 
     
   
+
+#plot shows the positive feedback of customers of each department  
+#one of ys is missing!
+#need better shape and color of the tittle
+  
+  ggplot(clothes, aes(x = Positive.Feedback.Count ,y = Department.Name,
+                     fill = Department.Name , color = Department.Name )) +
+  geom_density_ridges(alpha=0.6, stat="binline", bins=10)+
+  labs(title = "Positive feedback of each department",
+           x = "Feedback Count") +  
+  theme_ridges() + 
+  theme(legend.position = "none",
+        axis.title.y=element_blank(),
+        axis.text = element_text(colour = "dark blue"))
   
 
-#maybe its better to show it in normal distribution  
- dresses <- clothes %>% 
-    filter(Department.Name == "Dresses") 
- 
-
-
-  ggplot(dresses, aes(Rating, Positive.Feedback.Count)) +
-    geom_point(position = position_jitter(seed = 300))
+                         ##__ Not Finished Yet __##
   
+  #plot shows each department recommended in colored bar chart 
+  #have to manage colors and not stacking!
+  nrows <- clothes %>% nrow()
   
-#plot shows the mean of feedback count of each category .
+  ggplot(clothes, aes(Department.Name  ,nrows, fill =Recommended.IND)) +
+    geom_bar(position="stack", stat="identity")
+  
+
+  #plot shows the mean and distribution of feedback count of each category .
   
  departments <- clothes %>% 
                 group_by(Department.Name)  
@@ -110,17 +127,12 @@ smean.sdl(feedback, mult = 1)
     stat_summary(fun.data = mean_sdl, 
                  fun.args = list(mult = 1),
                  position = position_dodge(0.3)) +
+    scale_color_brewer("Department.Name", palette = "Dark2")
     labs(title = "customers feedback") + 
     scale_x_discrete(guide = guide_axis(n.dodge=2))+
     theme_classic(base_size = 10) +
     theme(axis.title.x=element_blank())
   
-
- #plot shows each department recommended in colored bar chart 
-   
-    ggplot(departments, aes(Department.Name ,fill =Recommended.IND)) +
-      geom_bar(position = "stack") +
-      scale_fill_manual(values=c(1 = "dark blue"))
       
   
 # plot shows the connection between positive feedback and rating   
