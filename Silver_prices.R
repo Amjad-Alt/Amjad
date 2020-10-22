@@ -5,12 +5,7 @@
 
 # Load the library----
 library(tidyverse)
-
-install.packages("Quandl")
 library(Quandl)
-library(xts)
-library(zoo)
-
 
 #My data----
 silver <- Quandl("LBMA/SILVER", api_key="--54GNetvPhzHjJBva6Z", start_date="2020-04-09")
@@ -19,26 +14,27 @@ silver <- Quandl("LBMA/SILVER", api_key="--54GNetvPhzHjJBva6Z", start_date="2020
 summary(silver)
 glimpse(silver)
 
-
 # mean----
 USD_mean <- silver %>% 
   summarise(avg = sum(USD)/ length(USD))
 
+# Can we can the moving average:
+zoo::rollmean(silver$EURO, 7)
+# mean(silver$EURO[1:7])
+# mean(silver$EURO[2:8])
 
 GBP_mean <- silver %>% 
   summarise(avg = sum(GBP)/ length(GBP))
 
 
 EURO_mean <- silver %>% 
-  summarise(avg = sum(EURO)/ length(EURO))
+  summarise(avg = mean(EURO))
 EURO_mean
 
 
 
 #variance----
-USD <- silver$USD
-USD_var <- sum((USD - USD_mean)^2)/(length(USD) - 1)
-      var(USD)
+USD_var <- var(silver$USD)
       
 GBP <- silver$GBP
 GBP_var <- sum((GBP - GBP_mean)^2)/(length(GBP) - 1)
@@ -60,10 +56,22 @@ sd(GBP)
 EURO_sd <- sqrt(EURO_var)
 sd(EURO)
 
+# We can do all of the above in simple commands:
+silver %>% 
+  pivot_longer(-Date) %>% 
+  group_by(name) %>% 
+  summarise(avg = mean(value),
+            stdev = sd(value))
+
+
+
+
+
+
 
 #linear model ----
-silver_lm <- lm(formula = Date ~ USD, data = silver)
-silver_lm
+# silver_lm <- lm(formula = Date ~ USD, data = silver)
+# silver_lm
 
 USD_lm <- lm(Date ~ USD, data = silver)
 plot(silver$Date, silver$USD)
