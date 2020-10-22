@@ -28,6 +28,9 @@ munsell::plot_hex(myBuPu)
 #My data.
 
 clothes <- read.csv("Womens_Clothing.csv")
+getwd()
+setwd("C:/Users/amjad/Documents/Misk/Amjad")
+clothes %>% head()
 
 #Plots
 
@@ -41,6 +44,7 @@ bad_rating <- clothes %>%
     labs(title = "Angry customers",
          x ="Age of customers",
          y = "Number of customers") +
+    scale_x_continuous( limits = c(15,100), breaks = c(20,40,60,80,100)) +
     theme_test() +
     theme(rect = element_blank())
   
@@ -60,37 +64,63 @@ bad_rating <- clothes %>%
           axis.text.x = element_text(angle = 45))
  
   
-  
-  
-  
-  
     
-# split same last data
-  #needs colors
-  #get red of squares
-  #organize the names
-  #choose better shape and alpha
+# split the same last data
   
-  ggplot(age_20, aes(Department.Name , Division.Name, color = vore)) +
-    geom_jitter(shape = 1,width = 0.6, alpha = 0.5,
-                size = 2)+
-    facet_wrap(~ Department.Name)+
-    theme_bw()
+  ggplot(age_20, aes(Department.Name , Division.Name, color = Department.Name)) +
+    geom_jitter(shape = 16,width = 0.6, alpha = 0.5,
+                size = 2) +
+    facet_wrap(~ Department.Name) +
+    theme_bw() +
+    theme(legend.position = "none", 
+          axis.title.x=element_blank(),
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank(),
+          strip.background = element_blank()) 
+    
   
   
-  
-# plot shows the connection between positive feedback and rating
-  
+
+#maybe its better to show it in normal distribution  
  dresses <- clothes %>% 
     filter(Department.Name == "Dresses") 
  
-#maybe its better to show it in normal distribution
+
 
   ggplot(dresses, aes(Rating, Positive.Feedback.Count)) +
     geom_point(position = position_jitter(seed = 300))
   
   
-#plot shows the mean avrage of buyers of each catogry  
-    
+#plot shows the mean of feedback count of each category .
   
-#   
+ departments <- clothes %>% 
+                group_by(Department.Name)  
+ 
+## change the feedback from integer to numeric
+feedback <- as.numeric(departments$Positive.Feedback.Count)
+
+## getting the mean 
+smean.sdl(feedback, mult = 1)
+
+
+#needs some colors 
+#one missing x!
+#I don't know what does it measure?!!
+    ggplot(departments, aes(Department.Name, feedback, color = feedback)) +
+    stat_summary(fun.data = mean_sdl, 
+                 fun.args = list(mult = 1),
+                 position = position_dodge(0.3)) +
+    labs(title = "customers feedback") + 
+    scale_x_discrete(guide = guide_axis(n.dodge=2))+
+    theme_classic(base_size = 10) +
+    theme(axis.title.x=element_blank())
+  
+
+ #plot shows each department recommended in colored bar chart 
+   
+    ggplot(departments, aes(Department.Name ,fill =Recommended.IND)) +
+      geom_bar(position = "stack") +
+      scale_fill_manual(values=c(1 = "dark blue"))
+      
+  
+# plot shows the connection between positive feedback and rating   
