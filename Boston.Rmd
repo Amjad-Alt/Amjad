@@ -43,14 +43,6 @@ ggplot(boston_train, aes(x = cmedv)) +
             trim = TRUE, col = "red")
 ```
 
-```{r}
-#Data
-library(kernlab)
-
-data(spam)
-```
-
-
 ##Create a model with lm(), glm() and caret
 ```{r}
 lm_boston <- lm(cmedv ~., data = boston_train)
