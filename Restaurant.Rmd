@@ -5,16 +5,18 @@ output: html_document
 
 #About the data
 
-Given the following information, the task is to predict the number of oreders for the next 10 weeks for the meal combinations, which are:
+Given the following information, the task is to predict the number of orders for the next 10 weeks for the meal combinations, which are:
 
 Historical data of demand for a product-center combination (Weeks: 1 to 145)
 Product(Meal) features such as category, sub-category, current price and discount
 Information for fulfillment centers like center area, city information, etc.
 
-Taking from:
+Taken from:
 https://www.kaggle.com/gauravsahani/food-demand-prediction-dataset
 
-
+#Questions need to be answered:
+1-What are the main controlling reasons determine the number
+2-What are the predicted numbers and type of dishes each day (use the mean).
 #Data and libraries
 
 ```{r}
@@ -44,12 +46,118 @@ food_train <- training(split)
 food_test  <- testing(split)
 
 #Model with lm()
-```{r}
-lm_food <- lm(num_orders ~., data = food_train)
+
+lm_food <- lm(num_orders ~ checkout_price, data = food_train)
 summary(lm_food)
 
-caret_food <- train(num_orders ~ ., data = food_train, 
-                  method = "lm")
-caret_food
+lm_food2 <- lm(num_orders ~ checkout_price + base_price, data = food_train)
+summary(lm_food2)
+
+lm_food3 <- lm(num_orders ~ ., data = food_train)
+summary(lm_food3)
+
+coef(lm_food) 
+coef(lm_food2) 
+
+```
+#knn
+```{r}
+# Specify resampling strategy
+cv <- trainControl(
+  method = "repeatedcv", 
+  number = 10, 
+  repeats = 5
+)
+
+# Create grid of hyperparameter values
+hyper_grid <- expand.grid(k = seq(2, 25, by = 1))
+
+# Tune a knn model using grid search
+knn_fit <- train(
+  num_orders ~ checkout_price, 
+  data = food_train, 
+  method = "knn", 
+  trControl = cv, 
+  tuneGrid = hyper_grid,
+  metric = "RMSE"
+)
+
+# 6. evaluate results
+# print model results
+knn_fit
+
+# plot cross validation results
+ggplot(knn_fit$results, aes(k, RMSE)) + 
+  geom_line() +
+  geom_point() +
+  scale_y_continuous(labels = scales::dollar)
+```
+# Feature effects
+
+```{r}
+set.seed(123)
+cv_model2 <- train(
+  num_orders ~ checkout_price + base_price, 
+  data = food_train, 
+  method = "lm",
+  trControl = cv
+  )
+
+# linear regression model
+p1 <- pdp::partial(cv_model2, pred.var = "checkout_price", grid.resolution = 10) %>% 
+  autoplot() +
+  ggtitle("OLS with 2 features") +
+  scale_y_continuous("Predicted number of orders", 
+                     labels = scales::dollar, 
+                     limits = c(0, 600))
+p1
+
+
+#Assess the interaction of the top 2 predictors:
+pdp::partial(
+  cv_model2,
+  pred.var = c("checkout_price", "base_price"),
+  grid.resolution = 10
+  ) %>% 
+  pdp::plotPartial(
+    levelplot = FALSE,
+    zlab = "number of orders", 
+    drape = TRUE, 
+    colorkey = TRUE, 
+    screen = list(z = -20, x = -60)
+    )
+```
+
+
+#Model concerns
+```{r}
+#Linear relationship
+ggplot(food_train, aes(checkout_price, base_price)) + 
+  geom_point(size = 1, alpha = .4) + 
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_y_log10("Number of orders", labels = scales::dollar) +
+  xlab("price") +
+  ggtitle(paste("near-linear relationship."))
+
+```
+
+
+```{r}
+# perform 10-fold cross validation on a PLS model tuning the 
+# number of principal components to use as predictors from 1-30
+set.seed(123)
+cv_model_pls <- train(
+  num_orders ~ ., 
+  data = food_train, 
+  method = "pls",
+  trControl = trainControl(method = "cv", number = 10),
+  preProcess = c("zv", "center", "scale"),
+  tuneLength = 30
+)
+
+# model with lowest RMSE
+cv_model_pls$bestTune
+
+vip(cv_model_pls, num_features = 5)
 ```
 
