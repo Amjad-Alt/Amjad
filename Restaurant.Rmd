@@ -1,0 +1,55 @@
+---
+title: "Food demands"
+output: html_document
+---
+
+#About the data
+
+Given the following information, the task is to predict the number of oreders for the next 10 weeks for the meal combinations, which are:
+
+Historical data of demand for a product-center combination (Weeks: 1 to 145)
+Product(Meal) features such as category, sub-category, current price and discount
+Information for fulfillment centers like center area, city information, etc.
+
+Taking from:
+https://www.kaggle.com/gauravsahani/food-demand-prediction-dataset
+
+
+#Data and libraries
+
+```{r}
+#package required
+library(rsample)
+library(tidyverse)
+library(stats)
+library(dplyr)
+library(caret)
+
+#data
+food <- read.csv("Food_demand.csv")
+# initial dimension
+dim(food)
+
+# response variable
+head(food$num_orders)
+
+```
+##Data splitting and distribution.
+
+```{r}
+            
+set.seed(123) # for reproducibility
+split <- initial_split(food, strata = "num_orders", prop = 0.7)
+food_train <- training(split)
+food_test  <- testing(split)
+
+#Model with lm()
+```{r}
+lm_food <- lm(num_orders ~., data = food_train)
+summary(lm_food)
+
+caret_food <- train(num_orders ~ ., data = food_train, 
+                  method = "lm")
+caret_food
+```
+
