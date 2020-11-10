@@ -29,7 +29,7 @@ library(vip)      # for variable importance
 #Quistion 1
 *Using the Hitters dataset from the ISLR package (data(Hitters, package = "ISLR")):
 ```{r}
-# ames data
+# hitters data
 Hitters
 data(Hitters, package = "ISLR")
 # initial dimension

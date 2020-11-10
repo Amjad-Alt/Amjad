@@ -15,7 +15,7 @@ Taken from:
 https://www.kaggle.com/gauravsahani/food-demand-prediction-dataset
 
 #Questions need to be answered:
-1-What are the main controlling reasons determine the number
+1-What are the main controlling reasons determine the number of orders
 2-What are the predicted numbers and type of dishes each day (use the mean).
 #Data and libraries
 
@@ -92,25 +92,60 @@ ggplot(knn_fit$results, aes(k, RMSE)) +
   geom_point() +
   scale_y_continuous(labels = scales::dollar)
 ```
-# Feature effects
+#Plot of the top 10 most influential features.
 
+```{r prereqs-data}
+# we use model.matrix(...)[, -1] to discard the intercept
+X <- model.matrix(num_orders ~ ., food_train)[, -1]
+
+# transform y with log transformation
+Y <- log(food_train$num_orders)
+
+# perform resampling
+set.seed(123)
+cv_glmnet <- train(
+  x = X,
+  y = Y,
+  method = "glmnet",
+  preProc = c("zv", "center", "scale"),
+  trControl = trainControl(method = "cv", number = 10),
+  tuneLength = 10
+)
+
+vip(cv_glmnet, num_features = 20, geom = "point")
+
+```
+
+
+# Feature effects
 ```{r}
 set.seed(123)
 cv_model2 <- train(
-  num_orders ~ checkout_price + base_price, 
+  num_orders ~ checkout_price, 
   data = food_train, 
   method = "lm",
   trControl = cv
   )
 
 # linear regression model
+
 p1 <- pdp::partial(cv_model2, pred.var = "checkout_price", grid.resolution = 10) %>% 
-  autoplot() +
-  ggtitle("OLS with 2 features") +
-  scale_y_continuous("Predicted number of orders", 
-                     labels = scales::dollar, 
-                     limits = c(0, 600))
+  ggplot(aes(checkout_price, yhat)) +
+  geom_line()
 p1
+
+set.seed(123)
+cv_model3 <- train(
+  num_orders ~ homepage_featured, 
+  data = food_train, 
+  method = "lm",
+  trControl = cv
+  )
+
+p2 <- pdp::partial(cv_model3, pred.var = "base_price", grid.resolution = 10) %>% 
+  ggplot(aes(base_price, yhat)) +
+  geom_line()
+p2
 
 
 #Assess the interaction of the top 2 predictors:
@@ -127,6 +162,35 @@ pdp::partial(
     screen = list(z = -20, x = -60)
     )
 ```
+# Tuning parameters
+```{r}
+# perform resampling
+# tuning grid
+hyper_grid <- expand.grid(
+  nprune = seq(2, 50, length.out = 10) %>% floor(),
+  degree = 1:3
+)
+
+set.seed(123)
+cv_mars <- train(
+  num_orders ~ ., 
+  data = food_train, 
+  trControl = trainControl(method = "cv", number = 10),
+  method = "earth",
+  tuneGrid = hyper_grid,
+  metric = "RMSE"
+  )
+
+# best model
+cv_mars$results %>%
+  filter(
+    nprune == cv_mars$bestTune$nprune,
+    degree == cv_mars$bestTune$degree
+    )
+
+# plot results
+plot(cv_mars)
+```
 
 
 #Model concerns
@@ -142,22 +206,5 @@ ggplot(food_train, aes(checkout_price, base_price)) +
 ```
 
 
-```{r}
-# perform 10-fold cross validation on a PLS model tuning the 
-# number of principal components to use as predictors from 1-30
-set.seed(123)
-cv_model_pls <- train(
-  num_orders ~ ., 
-  data = food_train, 
-  method = "pls",
-  trControl = trainControl(method = "cv", number = 10),
-  preProcess = c("zv", "center", "scale"),
-  tuneLength = 30
-)
 
-# model with lowest RMSE
-cv_model_pls$bestTune
-
-vip(cv_model_pls, num_features = 5)
-```
 
