@@ -1,0 +1,188 @@
+---
+title: "Loan"
+output: html_document
+---
+
+##Data Set Information:
+
+This research aimed at the case of customersâ€™ default payments in Taiwan and compares the predictive accuracy of probability of default among six data mining methods. From the perspective of risk management, the result of predictive accuracy of the estimated probability of default will be more valuable than the binary result of classification - credible or not credible clients
+
+##Source:
+
+Name: I-Cheng Yeh
+email addresses: (1) icyeh '@' chu.edu.tw (2) 140910 '@' mail.tku.edu.tw
+institutions: (1) Department of Information Management, Chung Hua University, Taiwan. (2) Department of Civil Engineering, Tamkang University, Taiwan.
+other contact information: 886-2-26215656 ext. 3181
+https://archive.ics.uci.edu/ml/datasets/default+of+credit+card+clients
+
+```{r}
+#Packages 
+library(tidyverse)
+library(ggplot2)
+library(caret)
+library(rsample)
+library(recipes)
+
+#Data
+loan <- read.csv("UCI_Credit_Card.csv")
+
+##I had this warning:You are trying to do regression and your outcome only has two possible values Are you trying to do classification? If so, use a 2 level factor as your outcome column##
+# In order to avoid it I changes variables into factors .. but it didn't work
+loan$default.payment.next.month =as.factor(loan$default.payment.next.month)
+loan$SEX =as.factor(loan$SEX)
+loan$MARRIAGE =as.factor(loan$MARRIAGE)
+loan$EDUCATION =as.factor(loan$EDUCATION)
+```
+
+#Data 
+
+```{r}
+# initial dimension
+dim(loan)
+glimpse(loan)
+head(loan$default.payment.next.month)
+```
+```{r}
+#Work with sample
+loan2 <- sample(loan, size = 700, replace = FALSE ) 
+
+#Splitting the data
+set.seed(123)
+split <- initial_split(loan, strata = "default.payment.next.month", prop = 0.7)
+loan_train <- training(split)
+loan_test  <- testing(split)
+
+```
+
+
+```{r}
+# Normalize to resolve numeric feature skewness and standardize (center and scale) numeric features
+#Perform dimension reduction on numeric features.
+recipe(default.payment.next.month ~ ., data = loan_train) %>%
+  step_YeoJohnson(all_numeric()) %>% 
+  step_center(all_numeric(), -all_outcomes()) %>%
+  step_scale(all_numeric(), -all_outcomes()) %>% 
+  step_pca(all_numeric(), threshold = .95)
+```
+
+```{r}
+#Filter out zero or near-zero variance features
+caret::nearZeroVar(loan_train, saveMetrics = TRUE) %>% 
+  tibble::rownames_to_column() %>% 
+  filter(nzv)
+```
+
+
+
+```{r}
+
+# create a resampling method
+cv <- trainControl(
+  method = "repeatedcv", 
+  number = 10, 
+  repeats = 5
+  )
+
+# create a hyperparameter grid search
+hyper_grid <- expand.grid(k = seq(2, 10, by = 100))
+
+
+# execute grid search with knn model
+# use RMSE as preferred metric
+knn_fit <- train(
+  default.payment.next.month ~ ., 
+  data = loan_train, 
+  method = "knn", 
+  trControl = cv, 
+  tuneGrid = hyper_grid,
+  metric = "RMSE"
+  )
+
+# evaluate results
+# print model results
+knn_fit
+```
+
+```{r}
+# plot cross validation results
+ggplot(knn_fit$results, aes(k, RMSE)) + 
+  geom_line() +
+  geom_point() +
+  scale_y_continuous(labels = scales::dollar)
+
+```
+
+
+#apply simple linear regression model
+```{r}
+
+#LM
+lm_loan1 <- lm(default.payment.next.month ~ LIMIT_BAL , data = loan_train)
+summary(lm_loan1)
+
+#Model concerns
+coef(lm_loan1)
+
+##why it doesn't work?
+#Model Accuracy
+set.seed(123)
+cv_model1 <- train(
+  default.payment.next.month ~ LIMIT_BAL ,
+  data = loan_train, 
+  method = "glm",
+  family = "binomial",
+  trControl = trainControl(method = "cv", number = 10)
+)
+
+```
+
+```{r}
+#apply simple linear regression model
+
+lm_loan2 <- lm(default.payment.next.month ~ AGE , data = loan_train)
+summary(lm_loan2)
+
+#Model concerns
+coef(lm_loan2)
+
+#Model Accuracy
+set.seed(123)
+cv_lm_loan2 <- train(
+  default.payment.next.month ~ AGE , data = loan_train, 
+  method = "glm",
+  family = "binomial",
+  trControl = trainControl(method = "cv", number = 10)
+)
+```
+```{r}
+lm_loan3 <- lm(default.payment.next.month~ ., data = loan_train)
+tidy(lm_loan3)
+
+#Model concerns
+coef(lm_loan3)
+
+#Model Accuracy
+set.seed(123)
+(cv_lm_loan3 <- train(
+  default.payment.next.month ~ ., data = loan_train, 
+  method = "glm",
+  family = "binomial",
+  trControl = trainControl(method = "cv", number = 10))
+)
+```
+
+```{r}
+# perform 10-fold cross validation on a PCR model tuning the 
+# number of principal components to use as predictors from 1-100
+set.seed(123)
+cv_model_pcr <- train(
+  default.payment.next.month~ .,
+  data = loan_train, 
+  method = "pcr",
+  trControl = trainControl(method = "cv", number = 10),
+  preProcess = c("zv", "center", "scale"),
+  tuneLength = 100
+  )
+```
+
+

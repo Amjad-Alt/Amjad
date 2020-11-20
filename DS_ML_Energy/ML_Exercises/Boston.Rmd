@@ -1,0 +1,194 @@
+---
+title: "Boston"
+output: html_document
+---
+
+## The data set.
+
+* Boston housing data set 
+
+```{r cars}
+#package required
+library(rsample)
+library(tidyverse)
+library(stats)
+library(dplyr)
+library(caret)
+
+#data
+boston <- pdp::boston
+boston
+# initial dimension
+dim(boston)
+
+# response variable
+head(boston$cmedv)
+
+```
+
+
+##Data splitting and distribution. 
+```{r }
+set.seed(123) # for reproducibility
+split <- initial_split(boston, strata = "cmedv", prop = 0.7)
+boston_train <- training(split)
+boston_test  <- testing(split)
+
+# Do the distributions line up? 
+ggplot(boston_train, aes(x = cmedv)) + 
+  geom_line(stat = "density", 
+            trim = TRUE) + 
+  geom_line(data = boston_test, 
+            stat = "density", 
+            trim = TRUE, col = "red")
+```
+
+##Create a model with lm(), glm() and caret
+```{r}
+lm_boston <- lm(cmedv ~., data = boston_train)
+summary(lm_boston)
+
+glm_boston <- glm(cmedv ~ ., data = boston_train,
+              family = gaussian)
+
+caret_boston <- train(cmedv ~ ., data = boston_train, 
+                  method = "lm")
+caret_boston
+```
+
+
+
+##perform a 10-fold cross-validated linear regression model, repeated 5 times, that uses all available features to predict cmedv
+
+```{r}
+# Specify resampling strategy
+cv <- trainControl(
+  method = "repeatedcv", 
+  number = 10, 
+  repeats = 5
+)
+
+# Create grid of hyperparameter values
+hyper_grid <- expand.grid(k = seq(2, 25, by = 1))
+
+# Tune a knn model using grid search
+knn_fit <- train(
+  cmedv ~ ., 
+  data = boston_train, 
+  method = "knn", 
+  trControl = cv, 
+  tuneGrid = hyper_grid,
+  metric = "RMSE"
+)
+
+# 6. evaluate results
+# print model results
+knn_fit
+
+# plot cross validation results
+ggplot(knn_fit$results, aes(k, RMSE)) + 
+  geom_line() +
+  geom_point() +
+  scale_y_continuous(labels = scales::dollar)
+```
+
+##Quistion 1 
+1-Pick a single feature and apply simple linear regression model.
+*Interpret the feature’s coefficient
+*What is the model’s performance? How does it compare to the KNN in the last module?
+
+```{r}
+lm_1 <- lm(cmedv ~ rm , data = boston_train)
+summary(lm_1)
+
+```
+#Quistion 2
+2-Pick another feature to add to the model.
+*Before applying the module why do you think this feature will help?
+*Apply a linear regression model with the two features and compare to the simple linear model.
+*Interpret the coefficients.
+
+```{r}
+lm_2 <- lm(cmedv ~ rm + chas, data = boston_train)
+summary(lm_2)
+```
+#Quistion 3
+3-Now apply a model that includes all the predictors.
+How does this model compare to the previous two?
+
+```{r}
+lm_3 <- lm(cmedv ~ ., data = boston_train)
+summary(lm_3)
+
+```
+#Quistion 4
+*Can you identify any model concerns?
+```{r}
+mb1 <- lm(cmedv ~ rm + chas, data = boston_train)
+mb2 <- lm(cmedv ~ rm, data = boston_train)
+mb3 <- lm(cmedv ~ chas, data = boston_train)
+
+coef(mb1) 
+coef(mb2) 
+coef(mb3)
+```
+
+#Quistion 4
+*Apply a principal component regression model.
+*Perform a grid search over several components.
+*Identify and explain the performance of the optimal model
+
+```{r}
+# 1. hypergrid
+hyper_grid <- expand.grid(ncomp = seq(2, 40, by = 2))
+
+# 2. PCR
+set.seed(123)
+cv_pcr <- train(
+  cmedv ~ ., 
+  data = boston_train, 
+  trControl = cv,
+  method = "pcr", 
+  preProcess = c("zv", "center", "scale"), 
+  tuneGrid = hyper_grid,
+  metric = "RMSE"
+  )
+install.packages("pls")
+# model with lowest RMSE
+cv_pcr$bestTune
+
+cv_pcr$results %>%
+  filter(ncomp == as.numeric(cv_pcr$bestTune))
+
+# plot cross-validated RMSE
+plot(cv_pcr)
+```
+
+
+#Quistion 6
+*Now apply a partial least square model.
+*Perform a grid search over several components.
+*Identify and explain the performance of the optimal model.
+```{r}
+# PLS
+set.seed(123)
+cv_pls <- train(
+  cmedv ~ ., 
+  data = boston_train, 
+  trControl = cv,
+  method = "pls", #<<
+  preProcess = c("zv", "center", "scale"),
+  tuneGrid = hyper_grid,
+  metric = "RMSE"
+  )
+
+# model with lowest RMSE
+cv_pls$bestTune
+
+cv_pls$results %>%
+  filter(ncomp == as.numeric(cv_pls$bestTune))
+
+# plot cross-validated RMSE
+plot(cv_pls)
+```
+
