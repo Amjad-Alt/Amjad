@@ -1,0 +1,251 @@
+---
+title: "Obesity"
+output: html_document
+---
+
+#Discribtion:
+
+This dataset include data for the estimation of obesity levels in individuals from the countries of Mexico, Peru and Colombia, based on their eating habits and physical condition.
+
+#Variables:
+The data contains 17 attributes and 2111 records, the records are labeled with the class variable NObesity (Obesity Level), that allows classification of the data using the values of Insufficient Weight, Normal Weight, Overweight Level I, Overweight Level II, Obesity Type I, Obesity Type II and Obesity Type III. 77% of the data was generated synthetically using the Weka tool and the SMOTE filter, 23% of the data was collected directly from users through a web platform.
+
+
+#sorce:
+https://archive.ics.uci.edu/ml/datasets/Estimation+of+obesity+levels+based+on+eating+habits+and+physical+condition+
+
+
+```{r}
+#Packages 
+library(tidyverse)
+library(ggplot2)
+library(caret)
+library(rsample)
+library(recipes)
+library(broom) #for cross validation of glm
+#library(magrittr)
+#library(modelr)
+
+#Data
+obesity <- read.csv("ObesityDataSet_raw_and_data_sinthetic.csv")
+
+#changes variables into factors
+obesity$Gender =as.factor(obesity$Gender)
+obesity$family_history_with_overweight=as.factor(obesity$family_history_with_overweight)
+obesity$FAVC =as.factor(obesity$FAVC)
+obesity$CAEC =as.factor(obesity$CAEC)
+obesity$SMOKE =as.factor(obesity$SMOKE)
+obesity$SCC =as.factor(obesity$SCC)
+obesity$CALC =as.factor(obesity$CALC)
+obesity$MTRANS =as.factor(obesity$MTRANS)
+obesity$NObeyesdad =as.factor(obesity$NObeyesdad)
+```
+
+
+```{r}
+# initial dimension
+dim(obesity)
+glimpse(obesity)
+head(obesity$NObeyesdad)
+```
+
+#Splitting the data
+```{r}
+#Splitting the data by 70/30
+
+set.seed(123)
+split <- initial_split(obesity, strata = "NObeyesdad", prop = 0.7)
+obesity_train <- training(split)
+obesity_test  <- testing(split)
+
+```
+
+#Feature ingeneering
+
+```{r}
+# Normalize to resolve numeric feature skewness and standardize (center and scale) numeric features
+recipe(NObeyesdad ~ ., data = obesity_train) %>%
+  step_YeoJohnson(all_numeric()) %>% 
+  step_center(all_numeric(), -all_outcomes()) %>%
+  step_scale(all_numeric(), -all_outcomes())
+```
+
+
+
+
+```{r}
+#Filter out zero or near-zero variance features
+caret::nearZeroVar(obesity_train, saveMetrics = TRUE) %>% 
+  tibble::rownames_to_column() %>% 
+  #should I remove?
+  filter(nzv)
+```
+
+```{r}
+
+#Perform dimension reduction on numeric features.
+recipe(NObeyesdad ~ ., data = obesity_train) %>%
+  step_center(all_numeric()) %>%
+  step_scale(all_numeric()) %>%
+  step_pca(all_numeric(), threshold = .95)
+```
+
+```{r}
+# One-hot or dummy encode categorical features.
+
+blueprint <- recipe(NObeyesdad ~ ., data = obesity_train) %>%
+  step_nzv(all_nominal()) %>%
+  step_integer(matches("Gender,family_history,FAVC,CAEC,SMOKE,SCC,
+                       CALC,MTRANS,NObeyesdad")) %>% 
+  step_dummy(all_nominal(), one_hot = TRUE)
+
+summary(blueprint)
+```
+
+
+```{r}
+
+#What is this doing and does the above enough?
+# Label encoded 
+ recipe(NObeyesdad ~ ., data = obesity_train) %>%
+  step_integer(matches("Gender,family_history,FAVC,CAEC,SMOKE,SCC,CALC,MTRANS,NObeyesdad")) %>%
+  prep(obesity_train) %>%
+  bake(obesity_train)
+```
+
+#SVM model (polynomial kernal)
+```{r}
+#build training model
+model <- train(NObeyesdad ~ ., data = obesity_train,
+               method = "svmPoly",
+               preProcess = c("scale","center"),
+               trControl = trainControl(method = "none"),
+               tuneGrid = data.frame(degree=1 , scale=1, C=1))
+```
+
+```{r}
+#build cross validation model
+cv <- train(NObeyesdad ~ ., data = obesity_train,
+               method = "svmPoly",
+               preProcess = c("scale","center"),
+               trControl = trainControl(method = "cv", number = 10),
+               tuneGrid = data.frame(degree=1 , scale=1, C=1))
+```
+
+
+```{r}
+#Apply model for prediction
+model_training <- predict(model, obesity_train)#apply model to predict training set
+model_testing <- predict(model, obesity_test)#apply model to predict testing set
+model_cv <- predict(cv, obesity_train)#preform cross validation
+```
+
+```{r}
+#model performance(displays confusion matrix and statistics)
+model_training_confusion <- confusionMatrix(model_training, obesity_train$NObeyesdad)
+model_testing_confusion <- confusionMatrix(model_testing, obesity_test$NObeyesdad)
+model_cv_confusion <- confusionMatrix(model_cv, obesity_train$NObeyesdad)
+```
+
+```{r}
+model_testing_confusion
+```
+
+
+```{r}
+model_training_confusion
+```
+
+
+```{r}
+model_cv_confusion
+```
+
+```{r}
+#feature importance 
+importance <- varImp(model)
+
+#plot shows the importance features of predicting each category
+plot(importance)
+
+```
+
+#apply simple linear regression model
+```{r}
+
+#GLM
+glm_obesity1 <-glm(NObeyesdad ~ Weight, data = obesity_train,family="binomial")
+summary(glm_obesity1)
+
+#Model concerns
+coef(glm_obesity1)
+
+
+##What should I replace "glm"?
+#Model Accuracy
+#set.seed(123)
+#(cv_lm_obesity1 <- train(
+ # NObeyesdad ~ Weight, data = obesity_train, 
+  #method = "glm",
+  #trControl = cv)
+#)
+
+  
+# calculate predictions using validation set
+obesity_test_accuracy <- augment(glm_obesity1, data = obesity_train,
+                           type.predict = "response") %>% 
+  mutate(pred = as.numeric(.fitted > .5))
+
+
+# calculate test error rate
+mean(obesity_test_accuracy$NObeyesdad != obesity_test_accuracy$pred, na.rm = TRUE)
+
+```
+
+
+
+```{r}
+glm_obesity2 <- glm(NObeyesdad ~ family_history_with_overweight + Weight, data = obesity_train, family = "binomial")
+summary(glm_obesity2)
+
+#Model concerns
+coef(glm_obesity2)
+
+#Model Accuracy
+
+set.seed(123)
+(cv_glm_obesity2 <- train(
+  NObeyesdad ~ Family_history_with_overweight,
+  data = obesity_train, 
+  method = "glm",
+  trControl = cv)
+)
+```
+
+
+```{r}
+glm_obesity3 <- glm(NObeyesdad ~ ., data = obesity_train, family = "binomial")
+summary(glm_obesity3)
+
+#Model concerns
+coef(glm_obesity3)
+
+#Model Accuracy
+set.seed(123)
+(cv_glm_obesity3 <- train(
+  NObeyesdad ~ ., data = obesity_train, 
+  method = "glm",
+  trControl = cv)
+)
+
+# calculate predictions using validation set
+obesity_test_accuracy2 <- augment(glm_obesity3, data = obesity_train,
+                           type.predict = "response") %>% 
+  mutate(pred2 = as.numeric(.fitted > .5))
+
+
+# calculate test error rate
+mean(obesity_test_accuracy2$NObeyesdad != obesity_test_accuracy2$pred2, na.rm = TRUE)
+```
+
+

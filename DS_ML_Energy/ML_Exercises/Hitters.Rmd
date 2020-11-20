@@ -1,0 +1,269 @@
+---
+title: "Hitters"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Prerequisites
+
+
+```{r}
+# Helper packages
+library(recipes)   # for feature engineering
+library(tidyverse) # general data munging
+library(dplyr)     # for data wrangling
+library(ggplot2)   # for awesome plotting
+# Modeling packages
+library(glmnet)   # for implementing regularized regression
+library(caret)    # for automating the tuning process
+library(rsample)  # for sampling
+library(earth)     # for fitting MARS models
+
+# Model interpretability packages
+library(vip)      # for variable importance
+library(pdp)       # for variable relationships
+library(rsample)
+```
+```
+
+#Quistion 1
+*Using the Hitters dataset from the ISLR package (data(Hitters, package = "ISLR")):
+
+```{r}
+# hitters data
+Hitters
+data(Hitters, package = "ISLR")
+# initial dimension
+dim(Hitters)
+
+# response variable
+head(Hitters$Salary)
+
+#Delete NA
+Hitters <- na.omit(Hitters)
+
+# split data
+set.seed(123)
+split <- initial_split(Hitters, strata = "Salary",prop = 0.7)
+hitters_train <- training(split)
+
+```
+#Quistion 2
+*Apply a ridge model with glmnet with Salary being the response variable.
+
+```{r}
+# Create training  feature matrices
+# we use model.matrix(...)[, -1] to discard the intercept
+X <- model.matrix(Salary ~ ., hitters_train)[, -1]
+
+# transform y with log transformation
+Y <- log(hitters_train$Salary)
+
+#Ridge
+ridge <- glmnet(
+  x = X,
+  y = Y,
+  alpha = 0
+)
+
+plot(ridge, xvar = "lambda")
+
+
+
+#Ridge CV model:
+plot(lasso, xvar = "lambda")
+
+ridge <- cv.glmnet(
+  x = X,
+  y = Y,
+  alpha = 0
+)
+
+```
+*What is the minimum MSE?
+*What is the minimum MSE within 1 standard error?
+*What are the lambda values for these MSEs?
+```{r}
+# Ridge model - minimum MSE
+min(ridge$cvm)
+
+# Ridge model - lambda for this min MSE
+ridge$lambda.min 
+
+# Ridge model w/1-SE rule
+ridge$cvm[ridge$lambda == ridge$lambda.1se]
+
+# Ridge model w/1-SE rule -- No. of coef | 1-SE MSE
+ridge$nzero[ridge$lambda == ridge$lambda.1se]
+```
+
+#Quistion 3
+*Apply a lasso model with glmnet.
+
+```{r}
+#Lasso
+
+lasso <- glmnet(
+  x = X,
+  y = Y,
+  alpha = 1
+)
+
+
+#Lasso CV model:
+plot(ridge)
+
+lasso <- cv.glmnet(
+  x = X,
+  y = Y,
+  alpha = 1
+)
+
+plot(lasso)
+```
+*What is the minimum MSE?
+*What is the minimum MSE within 1 standard error?
+*What are the lambda values for these MSEs?
+```{r}
+# Lasso model - minimum MSE
+min(lasso$cvm)       
+
+# Lasso model - lambda for this min MSE
+lasso$lambda.min 
+
+# Lasso model - w/1-SE rule
+lasso$cvm[lasso$lambda == lasso$lambda.1se]
+
+# Lasso model w/1-SE rule -- No. of coef | 1-SE MSE
+lasso$nzero[lasso$lambda == lasso$lambda.1se]
+```
+
+#Quistion 4
+*Perform a grid search across alpha parameter values ranging between 0–1.
+*How does it compare to your previous models?
+```{r}
+# tuning grid
+hyper_grid <- expand.grid(
+  alpha = seq(0, 1, by = .25),
+  lambda = c(0.1, 10, 100, 1000, 10000)
+)
+
+# perform resampling
+set.seed(123)
+cv_glmnet <- train(
+  x = X,
+  y = Y,
+  method = "glmnet",
+  preProc = c("zv", "center", "scale"),
+  trControl = trainControl(method = "cv", number = 10),
+  tuneLength = 10
+)
+
+# best model
+cv_glmnet$results %>%
+  filter(
+    alpha == cv_glmnet$bestTune$alpha,
+    lambda == cv_glmnet$bestTune$lambda
+    )
+
+# plot results
+plot(cv_glmnet)
+
+# predict Salary on training data
+pred <- predict(cv_glmnet, X)
+
+# compute RMSE of transformed predicted
+RMSE(exp(pred), exp(Y))
+```
+
+
+#Quistion 5
+*Plot the top 10 most influential features. Do these features have positive or negative impacts on your response variable?
+
+```{r prereqs-data}
+vip(cv_glmnet, num_features = 20, geom = "point")
+```
+
+#Quistion
+*Apply a MARS model with all features.
+*How does the model performance compare to your previous models?
+```{r}
+caret::getModelInfo("earth")$earth$parameters
+```
+```{r}
+# Fit a basic MARS model
+mars1 <- earth(
+  Salary ~ .,  
+  data = hitters_train   
+)
+
+# Print model summary
+print(mars1)
+```
+*How many of the features are influential? Which 10 features are considered most influential?
+```{r}
+summary(mars1) %>% .$coefficients %>% head(10)
+```
+
+*Does your model include hinge functions? If so, explain their coefficient and plot their impact on the predicted response variable.
+
+```{r cv-mars}
+# tuning grid
+hyper_grid <- expand.grid(
+  nprune = seq(2, 50, length.out = 10) %>% floor(),
+  degree = 1:3
+)
+
+# perform resampling
+set.seed(123)
+cv_mars <- train(
+  Salary ~ ., 
+  data = hitters_train, 
+  trControl = trainControl(method = "cv", number = 10),
+  method = "earth", #<<
+  tuneGrid = hyper_grid,
+  metric = "RMSE"
+  )
+
+# best model
+cv_mars$results %>%
+  filter(
+    nprune == cv_mars$bestTune$nprune,
+    degree == cv_mars$bestTune$degree
+    )
+
+# plot results
+plot(cv_mars)
+```
+
+
+
+```{r}
+# variable importance plots
+p1 <- vip(cv_mars, num_features = 40, geom = "point", value = "gcv") + ggtitle("GCV")
+p2 <- vip(cv_mars, num_features = 40, geom = "point", value = "rss") + ggtitle("RSS")
+
+gridExtra::grid.arrange(p1, p2, ncol = 2)
+```
+
+*Does your model include interactions? If so, pick the interaction effect that is most influential and explain the coefficient.
+```{r pdp, fig.width=15, fig.height=3, warning=FALSE, message=FALSE}
+# Construct partial dependence plots
+p1 <- partial(cv_mars, pred.var = "CRBI", grid.resolution = 10) %>% 
+  ggplot(aes(CRBI, yhat)) +
+  geom_line()
+
+p2 <- partial(cv_mars, pred.var = "Years", grid.resolution = 10) %>% 
+  ggplot(aes(Years, yhat)) +
+  geom_line()
+p3 <- partial(cv_mars, pred.var = c("CRBI", "Years"), 
+              grid.resolution = 10) %>% 
+  plotPartial(levelplot = FALSE, zlab = "yhat", drape = TRUE, colorkey = TRUE, 
+              screen = list(z = -20, x = -60))
+# Display plots side by side
+gridExtra::grid.arrange(p1, p2, p3, ncol = 3)
+```
+
