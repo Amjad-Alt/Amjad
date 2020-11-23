@@ -23,13 +23,15 @@ library(caret)
 library(rsample)
 library(recipes)
 library(broom) #for cross validation of glm
+library(GGally)#for correlation map
+library(RColorBrewer)
 #library(magrittr)
 #library(modelr)
 
 #Data
 obesity <- read.csv("ObesityDataSet_raw_and_data_sinthetic.csv")
 
-#changes variables into factors
+#changes into factors
 obesity$Gender =as.factor(obesity$Gender)
 obesity$family_history_with_overweight=as.factor(obesity$family_history_with_overweight)
 obesity$FAVC =as.factor(obesity$FAVC)
@@ -49,7 +51,7 @@ glimpse(obesity)
 head(obesity$NObeyesdad)
 ```
 
-#Splitting the data
+#Split the data
 ```{r}
 #Splitting the data by 70/30
 
@@ -112,6 +114,51 @@ summary(blueprint)
   prep(obesity_train) %>%
   bake(obesity_train)
 ```
+#Data intiuation 
+```{r}
+#categorical variables 
+#Is there better code can combine them? 
+#Should I use whole data to vis or only the train?
+
+ggplot(obesity_train, aes(FAVC)) + geom_bar()
+ggplot(obesity_train, aes(CAEC)) + geom_bar()
+ggplot(obesity_train, aes(SMOKE)) + geom_bar()
+ggplot(obesity_train, aes(SCC)) + geom_bar()
+ggplot(obesity_train, aes(CALC)) + geom_bar()
+ggplot(obesity_train, aes(MTRANS)) + geom_bar()
+ggplot(obesity_train, aes(NObeyesdad)) + geom_bar()
+
+#Does this serve the purpose?
+pie(table(obesity_train$Gender))
+pie(table(obesity_train$family_history_with_overweight))
+
+```
+
+```{r}
+#ordinal variables
+ggplot(obesity_train, aes(FCVC)) + geom_bar()
+ggplot(obesity_train, aes(NCP)) + geom_bar()
+ggplot(obesity_train, aes(CH2o)) + geom_bar()
+ggplot(obesity_train, aes(FAF)) + geom_bar()
+ggplot(obesity_train, aes(TUE)) + geom_bar()
+
+```
+
+```{r}
+# ratio variable distribution
+ggplot(obesity,aes(Age)) +
+    geom_density(fill="light blue", color="light blue", alpha=0.8)+
+    ggtitle("Distribution of Age") +
+    theme_classic()
+```
+
+```{r}
+#Correlation heat map 
+ggcorr(obesity, method = c("everything"))+
+  labs(title = "Predictor Variables")
+      
+```
+
 
 #SVM model (polynomial kernal)
 ```{r}
@@ -170,82 +217,47 @@ plot(importance)
 
 ```
 
-#apply simple linear regression model
+
+I tried to apply this method but it doesn't work as the way I thought.
+#apply logistic regression model
 ```{r}
 
-#GLM
-glm_obesity1 <-glm(NObeyesdad ~ Weight, data = obesity_train,family="binomial")
-summary(glm_obesity1)
+
+#apply GLM on the most influencing features appeared above 
+
+glm_obesity1 <-glm(NObeyesdad ~ Weight + Age, data = obesity_train,family="binomial")
+tidy(glm_obesity1)
 
 #Model concerns
 coef(glm_obesity1)
 
+#plot 
+plot(glm_obesity1)
 
-##What should I replace "glm"?
-#Model Accuracy
-#set.seed(123)
-#(cv_lm_obesity1 <- train(
- # NObeyesdad ~ Weight, data = obesity_train, 
-  #method = "glm",
-  #trControl = cv)
-#)
+# odds ratios and 95% CI
+exp(cbind(OR = coef(glm_obesity1), confint(glm_obesity1)))
 
-  
-# calculate predictions using validation set
-obesity_test_accuracy <- augment(glm_obesity1, data = obesity_train,
-                           type.predict = "response") %>% 
-  mutate(pred = as.numeric(.fitted > .5))
-
-
-# calculate test error rate
-mean(obesity_test_accuracy$NObeyesdad != obesity_test_accuracy$pred, na.rm = TRUE)
-
-```
-
-
-
-```{r}
-glm_obesity2 <- glm(NObeyesdad ~ family_history_with_overweight + Weight, data = obesity_train, family = "binomial")
-summary(glm_obesity2)
-
-#Model concerns
-coef(glm_obesity2)
-
-#Model Accuracy
-
-set.seed(123)
-(cv_glm_obesity2 <- train(
-  NObeyesdad ~ Family_history_with_overweight,
-  data = obesity_train, 
-  method = "glm",
-  trControl = cv)
-)
 ```
 
 
 ```{r}
 glm_obesity3 <- glm(NObeyesdad ~ ., data = obesity_train, family = "binomial")
-summary(glm_obesity3)
+tidy(glm_obesity3)
 
 #Model concerns
 coef(glm_obesity3)
 
-#Model Accuracy
-set.seed(123)
-(cv_glm_obesity3 <- train(
-  NObeyesdad ~ ., data = obesity_train, 
-  method = "glm",
-  trControl = cv)
-)
+#plot 
+plot(glm_obesity3) 
 
 # calculate predictions using validation set
-obesity_test_accuracy2 <- augment(glm_obesity3, data = obesity_train,
+obesity_test_accuracy3 <- augment(glm_obesity3, data = obesity_train,
                            type.predict = "response") %>% 
   mutate(pred2 = as.numeric(.fitted > .5))
 
 
 # calculate test error rate
-mean(obesity_test_accuracy2$NObeyesdad != obesity_test_accuracy2$pred2, na.rm = TRUE)
+mean(obesity_test_accuracy3$NObeyesdad != obesity_test_accuracy2$pred2, na.rm = TRUE)
 ```
 
 
