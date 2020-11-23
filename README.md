@@ -12,6 +12,7 @@ https://archive.ics.uci.edu/ml/datasets/Estimation+of+obesity+levels+based+on+ea
 Features:
 
 NObesity: Target Variable	Based on BMI (Categorical)
+
 FAVC: Eating Habits, frequent consumption of high caloric food	(Categorical)
 FCVC: Eating Habits, frequency of consumption of vegetables(Ordinal)
 NCP: Eating Habits number of main meals(Ordinal)
