@@ -1,4 +1,4 @@
-# Obesity DataSet
+# Obesity Data Set
 
 Discribtion:
 
