@@ -11,6 +11,8 @@ This dataset include data for the estimation of obesity levels in individuals fr
 The data contains 17 attributes and 2111 records, the records are labeled with the class variable NObesity (Obesity Level), that allows classification of the data using the values of Insufficient Weight, Normal Weight, Overweight Level I, Overweight Level II, Obesity Type I, Obesity Type II and Obesity Type III. 77% of the data was generated synthetically using the Weka tool and the SMOTE filter, 23% of the data was collected directly from users through a web platform.
 
 
+ 
+ 
 #sorce:
 https://archive.ics.uci.edu/ml/datasets/Estimation+of+obesity+levels+based+on+eating+habits+and+physical+condition+
 
@@ -51,96 +53,42 @@ glimpse(obesity)
 head(obesity$NObeyesdad)
 ```
 
-#Split the data
-```{r}
-#Splitting the data by 70/30
 
-set.seed(123)
-split <- initial_split(obesity, strata = "NObeyesdad", prop = 0.7)
-obesity_train <- training(split)
-obesity_test  <- testing(split)
-
-```
-
-#Feature ingeneering
-
-```{r}
-# Normalize to resolve numeric feature skewness and standardize (center and scale) numeric features
-recipe(NObeyesdad ~ ., data = obesity_train) %>%
-  step_YeoJohnson(all_numeric()) %>% 
-  step_center(all_numeric(), -all_outcomes()) %>%
-  step_scale(all_numeric(), -all_outcomes())
-```
-
-
-
-
-```{r}
-#Filter out zero or near-zero variance features
-caret::nearZeroVar(obesity_train, saveMetrics = TRUE) %>% 
-  tibble::rownames_to_column() %>% 
-  #should I remove?
-  filter(nzv)
-```
-
-```{r}
-
-#Perform dimension reduction on numeric features.
-recipe(NObeyesdad ~ ., data = obesity_train) %>%
-  step_center(all_numeric()) %>%
-  step_scale(all_numeric()) %>%
-  step_pca(all_numeric(), threshold = .95)
-```
-
-```{r}
-# One-hot or dummy encode categorical features.
-
-blueprint <- recipe(NObeyesdad ~ ., data = obesity_train) %>%
-  step_nzv(all_nominal()) %>%
-  step_integer(matches("Gender,family_history,FAVC,CAEC,SMOKE,SCC,
-                       CALC,MTRANS,NObeyesdad")) %>% 
-  step_dummy(all_nominal(), one_hot = TRUE)
-
-summary(blueprint)
-```
-
-
-```{r}
-
-#What is this doing and does the above enough?
-# Label encoded 
- recipe(NObeyesdad ~ ., data = obesity_train) %>%
-  step_integer(matches("Gender,family_history,FAVC,CAEC,SMOKE,SCC,CALC,MTRANS,NObeyesdad")) %>%
-  prep(obesity_train) %>%
-  bake(obesity_train)
-```
 #Data intiuation 
 ```{r}
 #categorical variables 
 #Is there better code can combine them? 
 #Should I use whole data to vis or only the train?
 
-ggplot(obesity_train, aes(FAVC)) + geom_bar()
-ggplot(obesity_train, aes(CAEC)) + geom_bar()
-ggplot(obesity_train, aes(SMOKE)) + geom_bar()
-ggplot(obesity_train, aes(SCC)) + geom_bar()
-ggplot(obesity_train, aes(CALC)) + geom_bar()
-ggplot(obesity_train, aes(MTRANS)) + geom_bar()
-ggplot(obesity_train, aes(NObeyesdad)) + geom_bar()
-
-#Does this serve the purpose?
-pie(table(obesity_train$Gender))
-pie(table(obesity_train$family_history_with_overweight))
+ggplot(obesity) + geom_bar(aes(FAVC))
+ggplot(obesity) + geom_bar(aes(CAEC))
+ggplot(obesity)+ geom_bar(aes(SMOKE))
+ggplot(obesity, aes(SCC)) + geom_bar()
+ggplot(obesity, aes(CALC)) + geom_bar()
+ggplot(obesity, aes(MTRANS)) + geom_bar()
+ggplot(obesity, aes(NObeyesdad)) + geom_bar()
 
 ```
 
 ```{r}
 #ordinal variables
-ggplot(obesity_train, aes(FCVC)) + geom_bar()
-ggplot(obesity_train, aes(NCP)) + geom_bar()
-ggplot(obesity_train, aes(CH2o)) + geom_bar()
-ggplot(obesity_train, aes(FAF)) + geom_bar()
-ggplot(obesity_train, aes(TUE)) + geom_bar()
+ggplot(obesity) + geom_bar(aes(FCVC))
+ggplot(obesity, aes(NCP)) + geom_boxplot()
+```
+
+
+```{r}
+ggplot(obesity, aes(CH2O)) + geom_histogram()
+```
+
+
+```{r}
+ggplot(obesity, aes(FAF)) + geom_histogram()
+```
+
+
+```{r}
+ggplot(obesity, aes(TUE)) + geom_histogram()
 
 ```
 
@@ -158,7 +106,48 @@ ggcorr(obesity, method = c("everything"))+
   labs(title = "Predictor Variables")
       
 ```
+#Feature ingeneering
 
+```{r}
+# Normalize to resolve numeric feature skewness and standardize (center and scale) numeric features
+recipe(NObeyesdad ~ ., data = obesity) %>%
+  step_YeoJohnson(all_numeric()) %>% 
+  step_center(all_numeric(), -all_outcomes()) %>%
+  step_scale(all_numeric(), -all_outcomes())
+```
+
+
+
+
+```{r}
+#Filter out zero or near-zero variance features
+caret::nearZeroVar(obesity, saveMetrics = TRUE) %>% 
+  tibble::rownames_to_column() %>% 
+  filter(nzv)
+```
+
+```{r}
+
+#Perform dimension reduction on numeric features.
+recipe(NObeyesdad ~ ., data = obesity) %>%
+  step_center(all_numeric()) %>%
+  step_scale(all_numeric()) %>%
+  step_pca(all_numeric(), threshold = .95)
+```
+
+
+
+
+#Split the data
+```{r}
+#Splitting the data by 70/30
+
+set.seed(123)
+split <- initial_split(obesity, strata = "NObeyesdad", prop = 0.7)
+obesity_train <- training(split)
+obesity_test  <- testing(split)
+
+```
 
 #SVM model (polynomial kernal)
 ```{r}
@@ -234,8 +223,6 @@ coef(glm_obesity1)
 #plot 
 plot(glm_obesity1)
 
-# odds ratios and 95% CI
-exp(cbind(OR = coef(glm_obesity1), confint(glm_obesity1)))
 
 ```
 
